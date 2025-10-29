@@ -1,0 +1,145 @@
+
+
+## 🚀 Prometheus Setup on Ubuntu (via Minikube + Helm)
+
+This guide helps you install **Minikube**, **Helm**, and **Docker**, and then deploy **Prometheus** on a local Kubernetes cluster.
+
+---
+
+### 🧰 1. Install Minikube
+
+```bash
+# Download the latest Minikube binary
+curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+
+# Install Minikube to /usr/local/bin and remove the downloaded file
+sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+```
+
+**📝 What it does:**
+Downloads and installs Minikube — a lightweight Kubernetes setup that runs locally.
+
+---
+
+### 🚀 2. Start Minikube and Verify Cluster
+
+```bash
+# Start the Minikube cluster
+minikube start
+
+# View all pods running across all namespaces
+kubectl get po -A
+
+# List all namespaces in the cluster
+kubectl get ns -A
+```
+
+**📝 What it does:**
+
+* Starts a local Kubernetes cluster
+* Checks that everything is running properly
+
+---
+
+### ⚙️ 3. Install Helm (Kubernetes Package Manager)
+
+```bash
+# Install dependencies for Helm
+sudo apt-get install curl gpg apt-transport-https --yes
+
+# Add Helm’s official GPG key
+curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+
+# Add Helm repository to system sources
+echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+
+# Update packages and install Helm
+sudo apt-get update
+sudo apt-get install helm -y
+```
+
+**📝 What it does:**
+Installs **Helm**, which makes deploying apps like Prometheus much easier on Kubernetes.
+
+---
+
+### 📈 4. Install Prometheus via Helm
+
+```bash
+# Add the Prometheus community Helm repo
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+# Update repo list
+helm repo update
+
+# Install Prometheus in the cluster
+helm install prometheus prometheus-community/prometheus
+```
+
+**📝 What it does:**
+Downloads and installs Prometheus monitoring using Helm in your Minikube cluster.
+
+---
+
+### 🐳 5. Install Docker Engine
+
+```bash
+# Update system packages
+sudo apt-get update
+
+# Install required packages for Docker
+sudo apt-get install ca-certificates curl -y
+
+# Create a directory for Docker’s GPG key
+sudo install -m 0755 -d /etc/apt/keyrings
+
+# Download and add Docker’s GPG key
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add Docker’s official repository
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Update and install Docker components
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+```
+
+**📝 What it does:**
+Sets up Docker from the official Docker repository with all the necessary plugins.
+
+---
+
+### 🔍 6. Verify Docker Installation
+
+```bash
+# Check Docker service status
+sudo systemctl status docker
+
+# Start Docker service if not running
+sudo systemctl start docker
+
+# Test Docker installation
+sudo docker run hello-world
+```
+
+**📝 What it does:**
+Ensures Docker is installed correctly and runs a test container.
+
+---
+
+### 🌐 7. Expose Prometheus Dashboard
+
+```bash
+# Forward Prometheus service port to host (accessible from browser)
+kubectl port-forward service/prometheus 9090:80 --address=0.0.0.0
+```
+
+**📝 What it does:**
+Makes Prometheus dashboard available at
+👉 `http://<your-server-ip>:9090`
+
+#Author: Abhishek-Mishra
