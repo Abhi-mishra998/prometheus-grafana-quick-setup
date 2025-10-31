@@ -1,0 +1,292 @@
+#Docker-installation
+sudo apt install docker.io
+  ---------------------------------
+# Add Docker's official GPG key:
+sudo apt update && apt install sudo -y
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER
+ sudo systemctl status docker
+sudo systemctl start docker
+sudo docker run hello-world
+docker ps -A
+  --------------------------------------------------
+#Docker-compose download
+sudo apt update
+sudo apt install docker-compose-plugin -y
+docker compose version
+#manual-installation
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+mkdir test-compose && cd test-compose
+# Create a docker-compose.yml:
+services:
+  hello:
+    image: hello-world
+docker-compose up
+docker-compose down -v (deleting image)
+--------------------------------------------------------------------------------
+🧩 Step-by-Step: Install kubectl on Ubuntu (for Minikube or Kubernetes)
+curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+minikube start
+kubectl get po -A
+minikube kubectl -- get po -A
+------------------------------------------------
+#kubectl-installation
+curl -LO "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+2️⃣ Make it executable and move it to your PATH
+
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+3️⃣ Verify installation
+kubectl version --client
+
+✅ You should see something like:
+Client Version: v1.31.0
+Kustomize Version: v5.4.1
+--------------------------------------------------------------------------------
+#helm
+# create a monitoring namespace (keeps things tidy)
+kubectl create namespace monitoring
+kubectl config set-context --current --namespace=monitoring
+kubectl config view --minify | grep namespace:
+
+# add charts
+# 1. Download the Helm install script
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+helm install prometheus prometheus-community/prometheus -n monitoring
+🧰 1. Add the official Grafana Helm repo
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+helm install my-grafana grafana/grafana --namespace monitoring --create-namespace
+kubectl get pods -n monitoring
+kubectl get secret --namespace monitoring my-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+🌐 6. Access Grafana via port-forward
+kubeclt get nodes -n monitoring
+kubectl get nodes
+kubectl patch svc my-grafana -n monitoring -p '{"spec": {"type": "NodePort"}}'
+kubectl get svc my-grafana -n monitoring
+kubectl port-forward --address 0.0.0.0 -n monitoring svc/my-grafana 3000:80
+
+7) Useful verification & troubleshooting commands
+Check pods and restart status:
+kubectl get pods -n monitoring
+kubectl describe pod <pod-name> -n monitoring
+kubectl logs <pod-name> -n monitoring
+
+If Helm install failed or is pending:
+helm list -n monitoring
+helm status prometheus -n monitoring
+helm status my-grafana -n monitoring
+
+9) Uninstall/cleanup (if you want to remove)
+helm uninstall prometheus -n monitoring
+helm uninstall my-grafana -n monitoring
+kubectl delete namespace monitoring
+----------------------------------------------------------------------------
+#nodeport-installation
+
+🧹 Step 1: Clean Old File
+cd /opt
+
+🧩 Step 2: Download Node Exporter (properly)
+
+sudo curl -LO https://github.com/prometheus/node_exporter/releases/download/v1.8.2/node_exporter-1.8.2.linux-amd64.tar.gz
+
+✅ Step 3: Extract and Install
+sudo tar xvf node_exporter-1.8.2.linux-amd64.tar.gz
+sudo mv node_exporter-1.8.2.linux-amd64/node_exporter /usr/local/bin/
+sudo rm -rf node_exporter-1.8.2.linux-amd64*
+sudo apt install gzip
+
+⚙️ Step 4: Create the Service
+sudo tee /etc/systemd/system/node_exporter.service > /dev/null <<EOF
+[Unit]
+Description=Node Exporter
+After=network.target
+
+[Service]
+User=nobody
+ExecStart=/usr/local/bin/node_exporter
+
+[Install]
+WantedBy=default.target
+EOF
+
+🚀 Step 5: Start and Enable
+sudo systemctl daemon-reload
+sudo systemctl start node_exporter
+sudo systemctl enable node_exporter
+sudo systemctl status node_exporter
+-------------------------------------------------------------------------------------------------
+
+Now we just need to:
+
+1. Install and configure **Prometheus**,
+2. Connect **Node Exporter** to Prometheus,
+3. Then link **Grafana** to Prometheus for dashboard visualization.
+
+Let’s finish this step-by-step 👇
+
+---
+
+## 🧩 STEP 1 — Install Prometheus
+
+
+cd /opt
+sudo useradd --no-create-home --shell /bin/false prometheus
+sudo mkdir /etc/prometheus /var/lib/prometheus
+
+
+Download and extract Prometheus:
+
+
+curl -LO https://github.com/prometheus/prometheus/releases/download/v2.54.1/prometheus-2.54.1.linux-amd64.tar.gz
+sudo tar xvf prometheus-2.54.1.linux-amd64.tar.gz
+cd prometheus-2.54.1.linux-amd64
+
+
+Move binaries:
+
+
+sudo mv prometheus promtool /usr/local/bin/
+sudo mv consoles/ console_libraries/ /etc/prometheus/
+
+
+## ⚙️ STEP 2 — Create Prometheus Config File
+
+Now create the Prometheus config file correctly:
+
+sudo tee /etc/prometheus/prometheus.yml > /dev/null <<EOF
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: ["localhost:9100"]
+EOF
+
+
+✅ This tells Prometheus to collect metrics from:
+
+* itself on port `9090`
+* Node Exporter on port `9100`
+
+
+
+## 🧠 STEP 3 — Set Permissions
+
+
+sudo chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
+sudo chown prometheus:prometheus /usr/local/bin/prometheus /usr/local/bin/promtool
+
+
+## 🚀 STEP 4 — Create Prometheus Systemd Service
+
+sudo tee /etc/systemd/system/prometheus.service > /dev/null <<EOF
+[Unit]
+Description=Prometheus Monitoring
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+ExecStart=/usr/local/bin/prometheus \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/var/lib/prometheus/ \
+  --web.listen-address=:9090 \
+  --web.console.templates=/etc/prometheus/consoles \
+  --web.console.libraries=/etc/prometheus/console_libraries
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+
+
+---
+
+## 🔄 STEP 5 — Start Prometheus
+
+
+sudo systemctl daemon-reload
+sudo systemctl start prometheus
+sudo systemctl enable prometheus
+sudo systemctl status prometheus
+```
+
+✅ You should see `Active: active (running)`
+
+---
+
+## 🌐 STEP 6 — Verify Prometheus Web UI
+
+In your browser, visit:
+
+```
+http://<your-ec2-public-ip>:9090
+```
+
+Then go to **Status → Targets**
+You should see both:
+
+* `prometheus` (UP)
+* `node_exporter` (UP)
+
+---
+
+## 📊 STEP 7 — Connect Grafana
+
+If you already have Grafana installed:
+
+1. Open Grafana in browser → `http://<your-ec2-public-ip>:3000`
+2. Login (default: `admin/admin`)
+3. Go to **Connections → Data Sources → Add data source**
+4. Choose **Prometheus**
+5. URL: `http://localhost:9090`
+6. Click **Save & Test**
+
+  
+kubectl port-forward --address 0.0.0.0 -n monitoring svc/my-grafana 3000:80
+
+---
+
+## 🎯 STEP 8 — Import Node Exporter Dashboard
+
+Import **Grafana Dashboard ID `1860`** (official Linux Node Exporter dashboard).
+
+Steps:
+
+* In Grafana → click **+ → Import**
+* Enter Dashboard ID: `1860`
+* Choose your Prometheus data source
+* Click **Import**
+
+Now you’ll see CPU, Memory, Disk, and Network metrics!
+
+
+
+
+  
